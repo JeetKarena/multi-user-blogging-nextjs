@@ -1,0 +1,1020 @@
+openapi: 3.1.1
+info:
+  title: Blogging Platform API
+  description: A multi-user blogging platform built with Next.js, tRPC, and PostgreSQL
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@blogplatform.com
+
+servers:
+  - url: http://localhost:3000
+    description: Development server
+  - url: https://your-production-url.com
+    description: Production server
+
+security:
+  - bearerAuth: []
+
+paths:
+  # Health check endpoint
+  /api/health:
+    get:
+      summary: Server health status
+      description: Check server health status including database connectivity and uptime. Returns 200 if healthy, 503 if unhealthy.
+      tags: [Health]
+      security: []  # No auth required
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  uptime:
+                    type: number
+                    description: Server uptime in seconds
+                  version:
+                    type: string
+                    example: "v18.17.0"
+                  environment:
+                    type: string
+                    example: "development"
+                  database:
+                    type: string
+                    example: "connected"
+                  services:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        example: "operational"
+                      api:
+                        type: string
+                        example: "operational"
+        '503':
+          description: Server is unhealthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "unhealthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  uptime:
+                    type: number
+                  version:
+                    type: string
+                  environment:
+                    type: string
+                  database:
+                    type: string
+                    example: "disconnected"
+                  services:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        example: "error"
+                      api:
+                        type: string
+                        example: "operational"
+                  error:
+                    type: string
+                    example: "Database connection failed"
+
+  # Authentication endpoints
+  /api/trpc/auth.register:
+    post:
+      summary: Register a new user (Send OTP)
+      description: Initiates user registration by sending a 6-digit OTP to the provided email address. The user account is not created until OTP verification is completed.
+      tags: [Authentication]
+      security: []  # No auth required
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  example: "John Doe"
+                email:
+                  type: string
+                  format: email
+                  example: "john@example.com"
+                password:
+                  type: string
+                  minLength: 6
+                  example: "password123"
+                username:
+                  type: string
+                  minLength: 3
+                  example: "johndoe"
+      responses:
+        '200':
+          description: OTP sent to email successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "OTP sent to your email. Please verify to complete registration."
+                  email:
+                    type: string
+                    format: email
+                    example: "john@example.com"
+
+  /api/trpc/auth.verifyOtp:
+    post:
+      summary: Verify OTP and complete registration
+      description: Verifies the OTP sent to the user's email and completes the registration process by creating the user account.
+      tags: [Authentication]
+      security: []  # No auth required
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - otp
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "john@example.com"
+                otp:
+                  type: string
+                  minLength: 6
+                  maxLength: 6
+                  pattern: '^[0-9]{6}$'
+                  example: "123456"
+      responses:
+        '200':
+          description: Registration completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+
+  /api/trpc/auth.forgotPassword:
+    post:
+      summary: Request password reset OTP
+      description: Sends a password reset OTP to the user's email address. For security reasons, this endpoint always returns a success message regardless of whether the email exists in the system.
+      tags: [Authentication]
+      security: []  # No auth required
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "john@example.com"
+      responses:
+        '200':
+          description: Password reset OTP sent (if account exists)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "If an account with this email exists, a password reset OTP has been sent."
+
+  /api/trpc/auth.resetPassword:
+    post:
+      summary: Reset password with OTP
+      description: Resets the user's password using the OTP received via email. The OTP must be valid and not expired.
+      tags: [Authentication]
+      security: []  # No auth required
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - otp
+                - newPassword
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "john@example.com"
+                otp:
+                  type: string
+                  minLength: 6
+                  maxLength: 6
+                  pattern: '^[0-9]{6}$'
+                  example: "123456"
+                newPassword:
+                  type: string
+                  minLength: 6
+                  example: "newpassword123"
+      responses:
+        '200':
+          description: Password reset successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Password has been reset successfully. You can now log in with your new password."
+
+  /api/trpc/auth.login:
+    post:
+      summary: Login user
+      tags: [Authentication]
+      security: []  # No auth required
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "john@example.com"
+                password:
+                  type: string
+                  example: "password123"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+
+  /api/trpc/auth.refreshToken:
+    post:
+      summary: Refresh access token
+      tags: [Authentication]
+      security: []  # No auth required
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+
+  /api/trpc/auth.logout:
+    post:
+      summary: Logout user
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Logout successful
+
+  /api/trpc/auth.getProfile:
+    get:
+      summary: Get user profile
+      tags: [Authentication]
+      responses:
+        '200':
+          description: User profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /api/trpc/auth.updateProfile:
+    patch:
+      summary: Update user profile
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "John Doe Updated"
+                email:
+                  type: string
+                  format: email
+                  example: "john.updated@example.com"
+                username:
+                  type: string
+                  example: "johndoe_updated"
+                avatar:
+                  type: string
+                  format: uri
+                  example: "https://example.com/avatar.jpg"
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /api/trpc/auth.getAllUsers:
+    get:
+      summary: Get all users (Admin only)
+      tags: [Authentication, Admin]
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+
+  /api/trpc/auth.updateUserRole:
+    patch:
+      summary: Update user role (Admin only)
+      tags: [Authentication, Admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - targetUserId
+                - role
+              properties:
+                targetUserId:
+                  type: string
+                  example: "user-uuid"
+                role:
+                  type: string
+                  enum: [user, editor, admin]
+                  example: "editor"
+      responses:
+        '200':
+          description: User role updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /api/trpc/auth.deactivateAccount:
+    post:
+      summary: Deactivate user account
+      description: Deactivate the current user's account. The account will be marked as inactive but not deleted.
+      tags: [Authentication]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Account deactivated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Account deactivated successfully"
+
+  /api/trpc/auth.deleteAccount:
+    post:
+      summary: Delete user account
+      description: Permanently delete the current user's account and all associated data. This action cannot be undone.
+      tags: [Authentication]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Account deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Account deleted successfully"
+
+  # Posts endpoints
+  /api/trpc/posts.getAll:
+    get:
+      summary: Get all posts
+      tags: [Posts]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, published, archived]
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Posts retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Post'
+
+  /api/trpc/posts.getById:
+    get:
+      summary: Get post by ID
+      tags: [Posts]
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+
+  /api/trpc/posts.getBySlug:
+    get:
+      summary: Get post by slug
+      tags: [Posts]
+      parameters:
+        - name: slug
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+
+  /api/trpc/posts.create:
+    post:
+      summary: Create a new post
+      tags: [Posts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - content
+              properties:
+                title:
+                  type: string
+                  example: "My First Blog Post"
+                content:
+                  type: string
+                  example: "This is the content of my blog post..."
+                excerpt:
+                  type: string
+                  example: "A brief summary of the post"
+                featuredImage:
+                  type: string
+                  format: uri
+                  example: "https://example.com/image.jpg"
+                status:
+                  type: string
+                  enum: [draft, published, archived]
+                  default: draft
+                publishedAt:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Post created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+
+  /api/trpc/posts.update:
+    patch:
+      summary: Update a post
+      tags: [Posts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - data
+              properties:
+                id:
+                  type: string
+                  example: "post-uuid"
+                data:
+                  type: object
+                  properties:
+                    title:
+                      type: string
+                      example: "Updated Title"
+                    content:
+                      type: string
+                      example: "Updated content..."
+                    excerpt:
+                      type: string
+                    featuredImage:
+                      type: string
+                      format: uri
+                    status:
+                      type: string
+                      enum: [draft, published, archived]
+                    publishedAt:
+                      type: string
+                      format: date-time
+      responses:
+        '200':
+          description: Post updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+
+  /api/trpc/posts.delete:
+    delete:
+      summary: Delete a post
+      tags: [Posts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+                  example: "post-uuid"
+      responses:
+        '200':
+          description: Post deleted successfully
+
+  /api/trpc/posts.publish:
+    post:
+      summary: Publish a post (Editor+)
+      tags: [Posts, Editor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+                  example: "post-uuid"
+      responses:
+        '200':
+          description: Post published successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+
+  /api/trpc/posts.unpublish:
+    post:
+      summary: Unpublish a post (Editor+)
+      tags: [Posts, Editor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+                  example: "post-uuid"
+      responses:
+        '200':
+          description: Post unpublished successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+
+  /api/trpc/posts.getAllPostsAdmin:
+    get:
+      summary: Get all posts for admin view (Editor+)
+      tags: [Posts, Editor]
+      responses:
+        '200':
+          description: Posts retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Post'
+
+  # Categories endpoints
+  /api/trpc/categories.getAll:
+    get:
+      summary: Get all categories
+      tags: [Categories]
+      parameters:
+        - name: includePostCount
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Categories retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  oneOf:
+                    - $ref: '#/components/schemas/Category'
+                    - $ref: '#/components/schemas/CategoryWithPostCount'
+
+  /api/trpc/categories.getById:
+    get:
+      summary: Get category by ID
+      tags: [Categories]
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Category retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+
+  /api/trpc/categories.getBySlug:
+    get:
+      summary: Get category by slug
+      tags: [Categories]
+      parameters:
+        - name: slug
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Category retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+
+  /api/trpc/categories.create:
+    post:
+      summary: Create a new category (Editor+)
+      tags: [Categories, Editor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: "Technology"
+                description:
+                  type: string
+                  example: "Posts about technology and programming"
+                color:
+                  type: string
+                  example: "#3B82F6"
+      responses:
+        '200':
+          description: Category created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+
+  /api/trpc/categories.update:
+    patch:
+      summary: Update a category (Editor+)
+      tags: [Categories, Editor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - data
+              properties:
+                id:
+                  type: string
+                  example: "category-uuid"
+                data:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      example: "Updated Technology"
+                    description:
+                      type: string
+                      example: "Updated description"
+                    color:
+                      type: string
+                      example: "#10B981"
+      responses:
+        '200':
+          description: Category updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+
+  /api/trpc/categories.delete:
+    delete:
+      summary: Delete a category (Editor+)
+      tags: [Categories, Editor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+                  example: "category-uuid"
+      responses:
+        '200':
+          description: Category deleted successfully
+
+  # Cleanup endpoints
+  /api/cleanup/expired-registrations:
+    post:
+      summary: Cleanup expired pending registrations
+      description: Removes all expired OTP registration requests from the database. This endpoint is intended for automated cleanup jobs.
+      tags: [Maintenance]
+      security:
+        - bearerAuth: []  # Optional API key authentication
+      responses:
+        '200':
+          description: Cleanup completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Expired pending registrations cleaned up successfully"
+                  timestamp:
+                    type: string
+                    format: date-time
+        '401':
+          description: Unauthorized - Invalid or missing API key
+        '500':
+          description: Internal server error during cleanup
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "user-uuid"
+        name:
+          type: string
+          example: "John Doe"
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+        username:
+          type: string
+          example: "johndoe"
+        avatar:
+          type: string
+          format: uri
+          nullable: true
+        role:
+          type: string
+          enum: [user, editor, admin]
+          example: "user"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    LoginResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        accessToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refreshToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    AuthTokens:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refreshToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    Post:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "post-uuid"
+        title:
+          type: string
+          example: "My Blog Post"
+        slug:
+          type: string
+          example: "my-blog-post"
+        content:
+          type: string
+          example: "Full content of the blog post..."
+        excerpt:
+          type: string
+          nullable: true
+          example: "Brief summary of the post"
+        featuredImage:
+          type: string
+          format: uri
+          nullable: true
+          example: "https://example.com/image.jpg"
+        status:
+          type: string
+          enum: [draft, published, archived]
+          example: "published"
+        authorId:
+          type: string
+          example: "user-uuid"
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "category-uuid"
+        name:
+          type: string
+          example: "Technology"
+        slug:
+          type: string
+          example: "technology"
+        description:
+          type: string
+          nullable: true
+          example: "Posts about technology"
+        color:
+          type: string
+          nullable: true
+          example: "#3B82F6"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CategoryWithPostCount:
+      allOf:
+        - $ref: '#/components/schemas/Category'
+        - type: object
+          properties:
+            postCount:
+              type: integer
+              example: 15
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization endpoints
+  - name: Posts
+    description: Blog post management endpoints
+  - name: Categories
+    description: Category management endpoints
+  - name: Admin
+    description: Administrative endpoints (admin role required)
+  - name: Editor
+    description: Editor endpoints (editor/admin role required)
+  - name: Maintenance
+    description: Maintenance and cleanup endpoints
+  - name: Health
+    description: Server health check endpoints
