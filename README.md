@@ -68,19 +68,26 @@ A modern, full-stack blogging platform built with cutting-edge technologies. Fea
 
    Configure the following variables in `.env.local`:
    ```env
-   # Database
-   DATABASE_URL="postgresql://username:password@localhost:5432/blogging_platform"
+   # Database Configuration (Required)
+   DATABASE_URL="postgresql://username:password@localhost:5432/database_name"
+   DATABASE_NAME="blogging_platform"
+   DATABASE_PASSWORD="your_database_password"
+   DATABASE_USER="your_database_username"
+   DATABASE_PORT="5432"
 
-   # Authentication
-   JWT_SECRET="your-super-secret-jwt-key-here"
-   JWT_REFRESH_SECRET="your-super-secret-refresh-jwt-key-here"
+   # Authentication Secrets (Required)
+   JWT_SECRET="your-super-secret-jwt-access-token-key-here-minimum-32-characters"
+   JWT_REFRESH_SECRET="your-super-secret-jwt-refresh-token-key-here-minimum-32-characters"
 
-   # Email Service (Resend)
-   RESEND_API_KEY="your-resend-api-key"
+   # Email Service (Required for registration/password reset)
+   RESEND_API_KEY="re_your_resend_api_key_here"
    RESEND_FROM_EMAIL="noreply@yourdomain.com"
 
-   # Optional: API Key for cleanup endpoint
-   CLEANUP_API_KEY="your-cleanup-api-key"
+   # Frontend URL (Required for email links)
+   FRONTEND_URL="http://localhost:3000"
+
+   # Optional: API Key for cleanup endpoint security
+   CLEANUP_API_KEY="your-optional-cleanup-api-key-here"
    ```
 
 4. **Set up the database**
@@ -223,13 +230,30 @@ public/                   # Static assets
 ### Vercel (Recommended)
 
 1. **Connect your repository** to [Vercel](https://vercel.com)
-2. **Add environment variables** in Vercel dashboard:
-   - `DATABASE_URL`
-   - `JWT_SECRET`
-   - `JWT_REFRESH_SECRET`
-   - `RESEND_API_KEY`
-   - `RESEND_FROM_EMAIL`
-   - `CLEANUP_API_KEY` (optional)
+2. **Add environment variables**
+   Add these in Vercel dashboard under Project Settings > Environment Variables:
+   ```
+   # Database Configuration
+   DATABASE_URL=your_postgres_connection_string
+   DATABASE_NAME=your_database_name
+   DATABASE_PASSWORD=your_database_password
+   DATABASE_USER=your_database_username
+   DATABASE_PORT=5432
+
+   # Authentication Secrets
+   JWT_SECRET=your_jwt_secret_key_minimum_32_chars
+   JWT_REFRESH_SECRET=your_jwt_refresh_secret_key_minimum_32_chars
+
+   # Email Service
+   RESEND_API_KEY=your_resend_api_key
+   RESEND_FROM_EMAIL=noreply@yourdomain.com
+
+   # Frontend URL
+   FRONTEND_URL=https://yourdomain.vercel.app
+
+   # Optional: Cleanup API Key
+   CLEANUP_API_KEY=your_optional_cleanup_api_key
+   ```
 
 3. **Deploy** - Vercel will automatically build and deploy your app
 

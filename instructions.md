@@ -75,6 +75,29 @@ Build a **Production-Ready Multi-User Blogging Platform** with authentication, r
    # Edit .env.local with your database URL and API keys
    ```
 
+### Required Environment Variables
+
+**Database (PostgreSQL):**
+- `DATABASE_URL` - Full PostgreSQL connection string
+- `DATABASE_NAME` - Database name
+- `DATABASE_PASSWORD` - Database password
+- `DATABASE_USER` - Database username
+- `DATABASE_PORT` - Database port (usually 5432)
+
+**Authentication:**
+- `JWT_SECRET` - JWT access token secret (min 32 chars)
+- `JWT_REFRESH_SECRET` - JWT refresh token secret (min 32 chars)
+
+**Email Service:**
+- `RESEND_API_KEY` - Resend API key for email sending
+- `RESEND_FROM_EMAIL` - Verified sender email address
+
+**Application:**
+- `FRONTEND_URL` - Frontend URL for email links (localhost:3000 for dev)
+
+**Optional:**
+- `CLEANUP_API_KEY` - API key for cleanup endpoint security
+
 3. **Database Setup**
    ```bash
    npm run db:push    # Create tables
