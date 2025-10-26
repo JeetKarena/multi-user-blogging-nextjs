@@ -12,7 +12,7 @@
   "crons": [
     {
       "path": "/api/cleanup/expired-registrations",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 2 * * *"
     }
   ],
   "regions": ["iad1"],
